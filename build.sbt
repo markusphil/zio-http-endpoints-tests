@@ -5,8 +5,13 @@ lazy val root = project
   .settings(
     name := "ZIO http test",
     version := "0.1.0-SNAPSHOT",
-
     scalaVersion := scala3Version,
-
-    libraryDependencies += "org.scalameta" %% "munit" % "1.0.0" % Test
+    // Build dependecies
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-http" % "3.0.1"
+    ),
+    // Test dependecies
+    libraryDependencies ++= Seq(
+      "org.scalameta" %% "munit" % "1.0.0" % Test
+    )
   )
