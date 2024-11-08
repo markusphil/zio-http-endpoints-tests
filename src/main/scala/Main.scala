@@ -11,6 +11,7 @@ import zio.schema.Schema
 import zio.schema.DeriveSchema
 import zio.json.ast.Json
 import zio.http.codec.HttpContentCodec
+import zio.http.codec.HttpCodecError
 
 // TODO:
 // [x] Query Parameters
@@ -18,10 +19,11 @@ import zio.http.codec.HttpContentCodec
 // [x] Request Body
 // [x] Response Body
 // [x] Exampels
-// [ ] Error Types
+// [x] Error Types
 // [x] Basic Auth
 // [ ] Auth with Context
-// [ ] Generate OpenAPI specs
+// [x] Generate OpenAPI specs
+// [ ] Setup Hot-Reloading
 //
 
 case class PushSettings(
@@ -55,10 +57,14 @@ object Endpoints {
       mediaType = MediaType.application.json,
       status = Status.Created
     )
+    // This definition allows to use every error of type ApiError
+    .outErrors[ApiError.UserNotFound.type | ApiError.InvalidPushToken.type](
+      HttpCodec.error[ApiError.UserNotFound.type](Status.NotFound),
+      HttpCodec.error[ApiError.InvalidPushToken.type](Status.BadRequest)
+    )
 }
 
 object GreetingServer extends ZIOAppDefault {
-
   val routes =
     Routes(
       Method.GET / Root -> handler(Response.text("Greetings at your service")),
@@ -75,8 +81,10 @@ object GreetingServer extends ZIOAppDefault {
 
   val userRoutes = Routes(
     Endpoints.updatePushSettingsEndpoint.implement(settings =>
-      ZIO.log(settings.toString()) *>
-        ZIO.succeed(settings)
+      ZIO.log(settings.toString()) *> {
+        if (settings.pushToken.length() < 6) ZIO.fail(ApiError.InvalidPushToken)
+        else ZIO.succeed(settings)
+      }
     )
   )
 
@@ -85,7 +93,8 @@ object GreetingServer extends ZIOAppDefault {
     OpenAPIGen.fromEndpoints(
       "ZIO Http Test",
       "0.0.1",
-      Endpoints.greetEndpoint
+      Endpoints.greetEndpoint,
+      Endpoints.updatePushSettingsEndpoint
     )
   )
 
